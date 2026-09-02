@@ -1,0 +1,428 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: projects
+    description: Video projects and dashboard data
+  - name: transcripts
+    description: Transcript generation and retrieval
+  - name: shorts
+    description: AI-generated short-form video suggestions
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /dashboard:
+    get:
+      operationId: getDashboard
+      tags: [projects]
+      summary: Get dashboard overview
+      responses:
+        "200":
+          description: Dashboard overview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dashboard"
+  /projects:
+    get:
+      operationId: listProjects
+      tags: [projects]
+      summary: List video projects
+      responses:
+        "200":
+          description: Video projects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Project"
+    post:
+      operationId: createProject
+      tags: [projects]
+      summary: Create a video project
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectInput"
+      responses:
+        "201":
+          description: Created project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+  /projects/{projectId}:
+    get:
+      operationId: getProject
+      tags: [projects]
+      summary: Get a video project
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Video project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+        "404":
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /projects/{projectId}/transcript:
+    get:
+      operationId: getTranscript
+      tags: [transcripts]
+      summary: Get the project transcript
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Timestamped transcript
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transcript"
+    post:
+      operationId: generateTranscript
+      tags: [transcripts]
+      summary: Generate or regenerate a transcript
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TranscriptInput"
+      responses:
+        "202":
+          description: Transcript generation started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transcript"
+  /projects/{projectId}/shorts:
+    get:
+      operationId: listShorts
+      tags: [shorts]
+      summary: List generated Shorts
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Generated Shorts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Short"
+    post:
+      operationId: analyzeShorts
+      tags: [shorts]
+      summary: Analyze a transcript for Shorts
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ShortsAnalysisInput"
+      responses:
+        "202":
+          description: Shorts analysis started
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Short"
+  /projects/{projectId}/shorts/{shortId}/save:
+    post:
+      operationId: saveShort
+      tags: [shorts]
+      summary: Save or unsave a Short
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/ShortId"
+      responses:
+        "200":
+          description: Updated Short
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Short"
+  /projects/{projectId}/shorts/{shortId}/export:
+    post:
+      operationId: exportShort
+      tags: [shorts]
+      summary: Create an export job for a Short
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/ShortId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExportInput"
+      responses:
+        "202":
+          description: Export job started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExportJob"
+components:
+  parameters:
+    ProjectId:
+      name: projectId
+      in: path
+      required: true
+      schema:
+        type: string
+    ShortId:
+      name: shortId
+      in: path
+      required: true
+      schema:
+        type: string
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+    Project:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        fileName:
+          type: string
+        fileSize:
+          type: number
+        durationSeconds:
+          type: number
+        status:
+          type: string
+          enum: [uploaded, transcribing, ready, analyzing, complete]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+        thumbnail:
+          type: ["string", "null"]
+      required: [id, name, fileName, fileSize, durationSeconds, status, createdAt, updatedAt, thumbnail]
+    ProjectInput:
+      type: object
+      properties:
+        name:
+          type: string
+        fileName:
+          type: string
+        fileSize:
+          type: number
+        durationSeconds:
+          type: number
+      required: [name, fileName, fileSize, durationSeconds]
+    Dashboard:
+      type: object
+      properties:
+        totalProjects:
+          type: number
+        totalTranscribed:
+          type: number
+        totalShorts:
+          type: number
+        minutesProcessed:
+          type: number
+        recentProjects:
+          type: array
+          items:
+            $ref: "#/components/schemas/Project"
+        activity:
+          type: array
+          items:
+            $ref: "#/components/schemas/Activity"
+      required: [totalProjects, totalTranscribed, totalShorts, minutesProcessed, recentProjects, activity]
+    Activity:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [upload, transcript, shorts, export]
+        label:
+          type: string
+        detail:
+          type: string
+        createdAt:
+          type: string
+      required: [id, type, label, detail, createdAt]
+    Transcript:
+      type: object
+      properties:
+        id:
+          type: string
+        projectId:
+          type: string
+        status:
+          type: string
+          enum: [queued, processing, complete, failed]
+        language:
+          type: string
+        confidence:
+          type: number
+        durationSeconds:
+          type: number
+        segments:
+          type: array
+          items:
+            $ref: "#/components/schemas/TranscriptSegment"
+      required: [id, projectId, status, language, confidence, durationSeconds, segments]
+    TranscriptInput:
+      type: object
+      properties:
+        language:
+          type: string
+        regenerate:
+          type: boolean
+    TranscriptSegment:
+      type: object
+      properties:
+        id:
+          type: string
+        startSeconds:
+          type: number
+        endSeconds:
+          type: number
+        text:
+          type: string
+      required: [id, startSeconds, endSeconds, text]
+    Short:
+      type: object
+      properties:
+        id:
+          type: string
+        projectId:
+          type: string
+        rank:
+          type: number
+        title:
+          type: string
+        startSeconds:
+          type: number
+        endSeconds:
+          type: number
+        durationSeconds:
+          type: number
+        score:
+          type: number
+        hook:
+          type: string
+        summary:
+          type: string
+        whyItWorks:
+          type: array
+          items:
+            type: string
+        suggestedTitle:
+          type: string
+        hashtags:
+          type: array
+          items:
+            type: string
+        saved:
+          type: boolean
+        status:
+          type: string
+          enum: [suggested, exporting, ready]
+      required: [id, projectId, rank, title, startSeconds, endSeconds, durationSeconds, score, hook, summary, whyItWorks, suggestedTitle, hashtags, saved, status]
+    ShortsAnalysisInput:
+      type: object
+      properties:
+        numberOfShorts:
+          type: number
+          minimum: 1
+          maximum: 10
+        duration:
+          type: string
+          enum: ["15-30", "30-45", "45-60"]
+        contentType:
+          type: string
+          enum: [educational, motivational, business, podcast, entertainment, viral, auto]
+      required: [numberOfShorts, duration, contentType]
+    ExportInput:
+      type: object
+      properties:
+        resolution:
+          type: string
+          enum: ["720x1280", "1080x1920"]
+        subtitleStyle:
+          type: string
+          enum: [clean, bold, karaoke, minimal]
+        backgroundMusic:
+          type: boolean
+        zoomEffects:
+          type: boolean
+        progressBar:
+          type: boolean
+        emojiCaptions:
+          type: boolean
+        branding:
+          type: boolean
+      required: [resolution, subtitleStyle, backgroundMusic, zoomEffects, progressBar, emojiCaptions, branding]
+    ExportJob:
+      type: object
+      properties:
+        id:
+          type: string
+        shortId:
+          type: string
+        status:
+          type: string
+          enum: [queued, processing, complete, failed]
+        resolution:
+          type: string
+        downloadUrl:
+          type: ["string", "null"]
+      required: [id, shortId, status, resolution, downloadUrl]
+
